@@ -1,11 +1,16 @@
 import argparse
 import asyncio
 import datetime
+import logging
 import sys
+from logging import config as logging_config
 
 import aiofiles
 
+from logging_config import LOGGING
 from tools import open_connection
+
+logging_config.dictConfig(LOGGING)
 
 
 async def open_and_read_from_connection(host: str, port: int, file: str):
@@ -14,7 +19,7 @@ async def open_and_read_from_connection(host: str, port: int, file: str):
             data = await reader.readline()
             while data:
                 line = f'[{datetime.datetime.now().strftime("%d-%m-%Y %H:%M")}] {data.decode()}'
-                print(line)
+                logging.debug(line)
                 await f.write(line)
                 data = await reader.readline()
 
@@ -33,10 +38,16 @@ async def main(hosts: list[str], ports: list[int], files: list[str]):
 
     while pending:
         done, pending = await asyncio.wait(pending, timeout=5)
-        print(f"Число завершившихся задач: {len(done)}")
-        print(f"Число ожидающих задач: {len(pending)}")
+        logging.debug(f"Число завершившихся задач: {len(done)}")
+        logging.debug(f"Число ожидающих задач: {len(pending)}")
         for done_task in done:
-            print(await done_task)
+            if done_task.exception() is None:
+                logging.debug(done_task.result())
+            else:
+                logging.error(
+                    "При выполнении запроса возникло исключение",
+                    exc_info=done_task.exception(),
+                )
 
 
 if __name__ == "__main__":
@@ -64,7 +75,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if len(args.hosts) != len(args.ports) or len(args.hosts) != len(args.files):
-        print("Ошибка: количество хостов, портов и токенов должно быть одинаковым.")
+        logging.error(
+            "Ошибка: количество хостов, портов и токенов должно быть одинаковым."
+        )
         sys.exit(1)
 
     asyncio.run(
