@@ -171,3 +171,6 @@ cython_debug/
 /v1.mp4
 /minechat.dvmn.org_5000.txt
 /messages_history.txt
+/files/
+/my_database.sqlite
+/my_database.db

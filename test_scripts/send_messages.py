@@ -3,12 +3,18 @@ import asyncio
 import json
 import logging
 import sys
-from logging import config as logging_config
+from contextlib import asynccontextmanager
+from typing import ContextManager
 
-from logging_config import LOGGING
-from tools import open_connection
 
-logging_config.dictConfig(LOGGING)
+@asynccontextmanager
+async def open_connection(host: str, port: int) -> ContextManager:
+    reader, writer = await asyncio.open_connection(host, port)
+    try:
+        yield reader, writer
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 async def submit_message(
@@ -121,6 +127,7 @@ def parse_args() -> tuple:
 
 
 async def main() -> None:
+    logging.basicConfig(level=logging.DEBUG)
     host, port, token, nickname, messages = parse_args()
     async with open_connection(host=host, port=port) as (reader, writer):
         line: str = await read_line(reader=reader)
