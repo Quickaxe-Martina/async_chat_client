@@ -74,45 +74,7 @@ async def register(
     )
 
 
-async def main(
-    host: str,
-    port: int,
-    token: str,
-    nickname: str,
-    messages: list[str],
-) -> None:
-    async with open_connection(host=host, port=port) as (reader, writer):
-        line: str = await read_line(reader=reader)
-        logging.debug(f"{line=}")
-        if (
-            "Enter your personal hash"
-            in line  # "Hello %username%! Enter your personal hash or leave it empty to create new account."
-        ):
-            if nickname:
-                data = await register(writer=writer, reader=reader, nickname=nickname)
-            elif token:
-                data = await authorise(writer=writer, reader=reader, token=f"{token}\n")
-            logging.debug(data)
-
-            pending = []
-            for m in messages:
-                task = asyncio.create_task(submit_message(writer, f"{m}\n"))
-                pending.append(task)
-            while pending:
-                done, pending = await asyncio.wait(pending, timeout=5)
-                logging.info(f"Число завершившихся задач: {len(done)}")
-                logging.info(f"Число ожидающих задач: {len(pending)}")
-                for done_task in done:
-                    if done_task.exception() is None:
-                        logging.debug(done_task.result())
-                    else:
-                        logging.error(
-                            "При выполнении запроса возникло исключение",
-                            exc_info=done_task.exception(),
-                        )
-
-
-if __name__ == "__main__":
+def parse_args() -> tuple:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host",
@@ -149,13 +111,47 @@ if __name__ == "__main__":
     if not args.token and not args.nickname:
         logging.error("Должен быть указан либо токен либо никнейм")
         sys.exit(1)
-
-    asyncio.run(
-        main(
-            host=args.host,
-            port=args.port,
-            token=args.token,
-            nickname=args.nickname,
-            messages=args.messages,
-        )
+    return (
+        args.host,
+        args.port,
+        args.token,
+        args.nickname,
+        args.messages,
     )
+
+
+async def main() -> None:
+    host, port, token, nickname, messages = parse_args()
+    async with open_connection(host=host, port=port) as (reader, writer):
+        line: str = await read_line(reader=reader)
+        logging.debug(f"{line=}")
+        if (
+            "Enter your personal hash"
+            in line  # "Hello %username%! Enter your personal hash or leave it empty to create new account."
+        ):
+            if nickname:
+                data = await register(writer=writer, reader=reader, nickname=nickname)
+            elif token:
+                data = await authorise(writer=writer, reader=reader, token=f"{token}\n")
+            logging.debug(data)
+
+            pending = []
+            for m in messages:
+                task = asyncio.create_task(submit_message(writer, f"{m}\n"))
+                pending.append(task)
+            while pending:
+                done, pending = await asyncio.wait(pending, timeout=5)
+                logging.info(f"Число завершившихся задач: {len(done)}")
+                logging.info(f"Число ожидающих задач: {len(pending)}")
+                for done_task in done:
+                    if done_task.exception() is None:
+                        logging.debug(done_task.result())
+                    else:
+                        logging.error(
+                            "При выполнении запроса возникло исключение",
+                            exc_info=done_task.exception(),
+                        )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

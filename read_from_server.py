@@ -24,33 +24,7 @@ async def open_and_read_from_connection(host: str, port: int, file: str):
                 data = await reader.readline()
 
 
-async def main(hosts: list[str], ports: list[int], files: list[str]):
-    pending = []
-    for host, port, file in zip(hosts, ports, files):
-        task = asyncio.create_task(
-            open_and_read_from_connection(
-                host=host,
-                port=port,
-                file=file,
-            )
-        )
-        pending.append(task)
-
-    while pending:
-        done, pending = await asyncio.wait(pending, timeout=5)
-        logging.debug(f"Число завершившихся задач: {len(done)}")
-        logging.debug(f"Число ожидающих задач: {len(pending)}")
-        for done_task in done:
-            if done_task.exception() is None:
-                logging.debug(done_task.result())
-            else:
-                logging.error(
-                    "При выполнении запроса возникло исключение",
-                    exc_info=done_task.exception(),
-                )
-
-
-if __name__ == "__main__":
+def parse_args() -> tuple:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -79,11 +53,35 @@ if __name__ == "__main__":
             "Ошибка: количество хостов, портов и токенов должно быть одинаковым."
         )
         sys.exit(1)
+    return args.hosts, args.ports, args.files
 
-    asyncio.run(
-        main(
-            hosts=args.hosts,
-            ports=args.ports,
-            files=args.files,
+
+async def main():
+    hosts, ports, files = parse_args()
+    pending = []
+    for host, port, file in zip(hosts, ports, files):
+        task = asyncio.create_task(
+            open_and_read_from_connection(
+                host=host,
+                port=port,
+                file=file,
+            )
         )
-    )
+        pending.append(task)
+
+    while pending:
+        done, pending = await asyncio.wait(pending, timeout=5)
+        logging.debug(f"Число завершившихся задач: {len(done)}")
+        logging.debug(f"Число ожидающих задач: {len(pending)}")
+        for done_task in done:
+            if done_task.exception() is None:
+                logging.debug(done_task.result())
+            else:
+                logging.error(
+                    "При выполнении запроса возникло исключение",
+                    exc_info=done_task.exception(),
+                )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
