@@ -3,14 +3,20 @@ import asyncio
 import datetime
 import logging
 import sys
-from logging import config as logging_config
+from contextlib import asynccontextmanager
+from typing import ContextManager
 
 import aiofiles
 
-from logging_config import LOGGING
-from tools import open_connection
 
-logging_config.dictConfig(LOGGING)
+@asynccontextmanager
+async def open_connection(host: str, port: int) -> ContextManager:
+    reader, writer = await asyncio.open_connection(host, port)
+    try:
+        yield reader, writer
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 async def open_and_read_from_connection(host: str, port: int, file: str):
@@ -22,6 +28,18 @@ async def open_and_read_from_connection(host: str, port: int, file: str):
                 logging.debug(line)
                 await f.write(line)
                 data = await reader.readline()
+
+
+async def open_and_read_from_connection_with_retry(
+    host: str, port: int, file: str, delay: int = 5
+):
+    while True:
+        try:
+            await open_and_read_from_connection(host, port, file)
+            break
+        except Exception as e:
+            logging.error(f"Error: {e}. Retrying in {delay} seconds...")
+            await asyncio.sleep(delay)
 
 
 def parse_args() -> tuple:
@@ -57,6 +75,7 @@ def parse_args() -> tuple:
 
 
 async def main():
+    logging.basicConfig(level=logging.DEBUG)
     hosts, ports, files = parse_args()
     pending = []
     for host, port, file in zip(hosts, ports, files):

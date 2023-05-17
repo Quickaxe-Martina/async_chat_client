@@ -11,3 +11,10 @@ async def open_connection(host: str, port: int) -> ContextManager:
     finally:
         writer.close()
         await writer.wait_closed()
+
+
+async def read_line(
+    reader: asyncio.StreamReader,
+) -> str:
+    data = await reader.readline()
+    return data.decode().strip()
